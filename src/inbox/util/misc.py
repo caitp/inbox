@@ -1,4 +1,9 @@
-import os, sys, pkgutil, time
+import os
+import sys
+import pkgutil
+import time
+import signal
+
 from inbox.server.log import get_logger
 
 
@@ -95,3 +100,46 @@ def load_modules(base_module):
         modules.append(module)
 
     return modules
+
+
+class PidFile(object):
+    def __init__(self, basedir, name):
+        """ Context Manager for process locking via a process id file.
+
+        Correctly cleans up the pidfile even in the case of stopping via
+        ctrl-c.
+
+        Arguments
+        ---------
+        basedir : str
+            Where PID files go.
+
+        name : str
+            What to call the pidfile.
+        """
+        if not os.path.exists(basedir):
+            os.mkdir(basedir)
+        self.filename = os.path.join(basedir, "{}.pid".format(name))
+
+    def release(self):
+        """ Make sure pid file is cleaned up. """
+        os.unlink(self.filename)
+
+    def __enter__(self):
+        if os.path.isfile(self.filename):
+            pid = file(self.filename, 'r').read()
+            print >>sys.stderr, \
+                "Inbox server is already running! (pid {})".format(pid)
+            sys.exit()
+        else:
+            def ctrlc_handler(signum, frame):
+                self.release()
+                sys.exit(0)
+
+            signal.signal(signal.SIGINT, ctrlc_handler)
+
+            pid = str(os.getpid())
+            file(self.filename, 'w').write(pid)
+
+    def __exit__(self, type, value, traceback):
+        self.release()
