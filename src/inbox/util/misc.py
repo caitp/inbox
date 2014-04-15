@@ -132,8 +132,11 @@ class PidFile(object):
                 "Inbox server is already running! (pid {})".format(pid)
             sys.exit()
         else:
+            original_handler = signal.getsignal(signal.SIGINT)
+
             def ctrlc_handler(signum, frame):
                 self.release()
+                signal.signal(signal.SIGINT, original_handler)
                 sys.exit(0)
 
             signal.signal(signal.SIGINT, ctrlc_handler)
