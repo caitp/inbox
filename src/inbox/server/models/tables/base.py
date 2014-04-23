@@ -16,6 +16,8 @@ from sqlalchemy.sql.expression import true, false
 
 from bs4 import BeautifulSoup, Doctype, Comment
 
+from cryptography.fernet import Fernet
+
 from inbox.server.log import get_logger
 log = get_logger()
 
@@ -24,7 +26,6 @@ from inbox.server.config import config
 from inbox.util.file import Lock, mkdirp
 from inbox.util.html import plaintext2html
 from inbox.util.misc import strip_plaintext_quote, load_modules
-from inbox.util.cryptography import encrypt_aes, decrypt_aes
 from inbox.sqlalchemy.util import JSON
 from inbox.sqlalchemy.revision import Revision, gen_rev_role
 from inbox.server.basicauth import AUTH_TYPES
@@ -99,11 +100,10 @@ class Account(Base):
     # used to verify key lifespan
     date = Column(DateTime)
 
-    # Password stuff
     # 'deferred' loads these large binary fields into memory only when needed
     # i.e. on direct access.
-    password_aes = deferred(Column(BLOB(256)))
-    key = deferred(Column(BLOB(128)))
+    encrypted_password = deferred(Column(BLOB(256)))
+    encryption_key = deferred(Column(BLOB(128)))
 
     @classmethod
     def _get_lock_object(cls, account_id, lock_for=dict()):
@@ -133,34 +133,38 @@ class Account(Base):
 
     @property
     def password(self):
-        if self.password_aes is not None:
+        if self.encrypted_password is not None:
             with open(self._keyfile, 'r') as f:
                 key = f.read()
 
-            key = self.key + key
-            return decrypt_aes(self.password_aes, key)
+            key = self.encryption_key + key
+            f = Fernet(key)
+            return f.decrypt(self.encrypted_password)
 
     @password.setter
     def password(self, value):
         assert AUTH_TYPES.get(self.provider) == 'Password'
         assert value is not None
 
-        key_size = int(config.get('KEY_SIZE', 128))
-        self.password_aes, key = encrypt_aes(value, key_size)
-        self.key = key[:len(key)/2]
+        key = Fernet.generate_key()
+        f = Fernet(key)
+
+        self.encrypted_password = f.encrypt(value)
+        fs_key_half, db_key_half = key[len(key)/2:], key[:len(key)/2]
+        self.encryption_key = db_key_half
 
         with open(self._keyfile, 'w+') as f:
-            f.write(key[len(key)/2:])
+            f.write(fs_key_half)
 
     @property
     def _keyfile(self, create_dir=True):
-        assert self.key
+        assert self.encryption_key
 
         key_dir = config.get('KEY_DIR', None)
         assert key_dir
         if create_dir:
             mkdirp(key_dir)
-        key_filename = '{0}'.format(sha256(self.key).hexdigest())
+        key_filename = '{}'.format(sha256(self.encryption_key).hexdigest())
         return os.path.join(key_dir, key_filename)
 
     discriminator = Column('type', String(16))

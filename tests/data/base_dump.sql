@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.35, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.5.34, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: test
 -- ------------------------------------------------------
--- Server version	5.5.35-0ubuntu0.12.04.2-log
+-- Server version	5.5.34-0ubuntu0.12.04.1-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -46,9 +46,9 @@ CREATE TABLE `account` (
   `o_refresh_token` varchar(512) DEFAULT NULL,
   `o_verified_email` tinyint(1) DEFAULT NULL,
   `date` datetime DEFAULT NULL,
-  `password_aes` blob,
-  `key` tinyblob,
   `type` varchar(16) DEFAULT NULL,
+  `encrypted_password` blob,
+  `encryption_key` tinyblob,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
   KEY `ix_account_email_address` (`email_address`(191)),
@@ -62,7 +62,7 @@ CREATE TABLE `account` (
 
 LOCK TABLES `account` WRITE;
 /*!40000 ALTER TABLE `account` DISABLE KEYS */;
-INSERT INTO `account` VALUES (1,1,'inboxapptest@gmail.com','Gmail',1,NULL,'2014-03-20 16:54:04','INBOX','[Gmail]/Drafts','[Gmail]/All Mail','[Gmail]/Sent Mail','986659776516-fg79mqbkbktf5ku10c215vdij918ra0a.apps.googleusercontent.com','115086935419017912828','ya29.1.AADtN_X5FMfe0IR7pju_GkNlIQBrveyxXQZTsRKDqSQTYWpiAW68bycv0hZCn_g','eyJhbGciOiJSUzI1NiIsImtpZCI6IjNiMzNjYjQxNGZiN2EwMmU0MTExOTY4MmU5YzUwNTg5MDgwNjUwZmUifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwiaWQiOiIxMTUwODY5MzU0MTkwMTc5MTI4MjgiLCJzdWIiOiIxMTUwODY5MzU0MTkwMTc5MTI4MjgiLCJhenAiOiI5ODY2NTk3NzY1MTYtZmc3OW1xYmtia3RmNWt1MTBjMjE1dmRpajkxOHJhMGEuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJlbWFpbCI6ImluYm94YXBwdGVzdEBnbWFpbC5jb20iLCJhdF9oYXNoIjoiSVRhSnlHeGFNam94YTM0dzhFZUZxUSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdWQiOiI5ODY2NTk3NzY1MTYtZmc3OW1xYmtia3RmNWt1MTBjMjE1dmRpajkxOHJhMGEuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJ0b2tlbl9oYXNoIjoiSVRhSnlHeGFNam94YTM0dzhFZUZxUSIsInZlcmlmaWVkX2VtYWlsIjp0cnVlLCJjaWQiOiI5ODY2NTk3NzY1MTYtZmc3OW1xYmtia3RmNWt1MTBjMjE1dmRpajkxOHJhMGEuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJpYXQiOjEzOTgyMDUyMDUsImV4cCI6MTM5ODIwOTEwNX0.ho6VEdrvf8nQsve8Z4D1YmYtn5Io8ywZUB1RIvjQQ7fRRWGcmQovIQn6fFTysRf3gEImst-Ynn2bZCXQ25T-wrQZrP5K8B9xcLz2GfpzVceWjUqGOIaF2DHrkb_h_WMSX4JBdfUEMedaZ4lsk9JY8n0WwB9W_zEDyuP3M0OwW3w',3600,'offline','Bearer','986659776516-fg79mqbkbktf5ku10c215vdij918ra0a.apps.googleusercontent.com','https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://mail.google.com/ https://www.google.com/m8/feeds https://www.googleapis.com/auth/calendar','1/wLoQFTg-cPlgP4l1OVw7mMPia7iY4XGBOFdeqkwnvhQ',1,'2014-04-22 22:25:06',NULL,NULL,'imapaccount');
+INSERT INTO `account` VALUES (1,1,'inboxapptest@gmail.com','Gmail',1,NULL,'2014-03-20 16:54:04','INBOX','[Gmail]/Drafts','[Gmail]/All Mail','[Gmail]/Sent Mail','986659776516-fg79mqbkbktf5ku10c215vdij918ra0a.apps.googleusercontent.com','115086935419017912828','ya29.1.AADtN_X5FMfe0IR7pju_GkNlIQBrveyxXQZTsRKDqSQTYWpiAW68bycv0hZCn_g','eyJhbGciOiJSUzI1NiIsImtpZCI6IjNiMzNjYjQxNGZiN2EwMmU0MTExOTY4MmU5YzUwNTg5MDgwNjUwZmUifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwiaWQiOiIxMTUwODY5MzU0MTkwMTc5MTI4MjgiLCJzdWIiOiIxMTUwODY5MzU0MTkwMTc5MTI4MjgiLCJhenAiOiI5ODY2NTk3NzY1MTYtZmc3OW1xYmtia3RmNWt1MTBjMjE1dmRpajkxOHJhMGEuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJlbWFpbCI6ImluYm94YXBwdGVzdEBnbWFpbC5jb20iLCJhdF9oYXNoIjoiSVRhSnlHeGFNam94YTM0dzhFZUZxUSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdWQiOiI5ODY2NTk3NzY1MTYtZmc3OW1xYmtia3RmNWt1MTBjMjE1dmRpajkxOHJhMGEuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJ0b2tlbl9oYXNoIjoiSVRhSnlHeGFNam94YTM0dzhFZUZxUSIsInZlcmlmaWVkX2VtYWlsIjp0cnVlLCJjaWQiOiI5ODY2NTk3NzY1MTYtZmc3OW1xYmtia3RmNWt1MTBjMjE1dmRpajkxOHJhMGEuYXBwcy5nb29nbGV1c2VyY29udGVudC5jb20iLCJpYXQiOjEzOTgyMDUyMDUsImV4cCI6MTM5ODIwOTEwNX0.ho6VEdrvf8nQsve8Z4D1YmYtn5Io8ywZUB1RIvjQQ7fRRWGcmQovIQn6fFTysRf3gEImst-Ynn2bZCXQ25T-wrQZrP5K8B9xcLz2GfpzVceWjUqGOIaF2DHrkb_h_WMSX4JBdfUEMedaZ4lsk9JY8n0WwB9W_zEDyuP3M0OwW3w',3600,'offline','Bearer','986659776516-fg79mqbkbktf5ku10c215vdij918ra0a.apps.googleusercontent.com','https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile https://mail.google.com/ https://www.google.com/m8/feeds https://www.googleapis.com/auth/calendar','1/wLoQFTg-cPlgP4l1OVw7mMPia7iY4XGBOFdeqkwnvhQ',1,'2014-04-22 22:25:06','imapaccount',NULL,NULL);
 /*!40000 ALTER TABLE `account` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -84,7 +84,7 @@ CREATE TABLE `alembic_version` (
 
 LOCK TABLES `alembic_version` WRITE;
 /*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
-INSERT INTO `alembic_version` VALUES ('563d405d1f99');
+INSERT INTO `alembic_version` VALUES ('19a78020520c');
 /*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -766,4 +766,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-04-22 22:25:09
+-- Dump completed on 2014-04-23  0:51:56
