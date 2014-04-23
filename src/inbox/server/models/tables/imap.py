@@ -1,5 +1,5 @@
 from sqlalchemy import (Column, Integer, BigInteger, String, Boolean, Enum,
-                        ForeignKey, Index)
+                        ForeignKey, Index, DateTime)
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
@@ -200,9 +200,14 @@ class FolderSync(Base):
     # http://mathiasbynens.be/notes/mysql-utf8mb4
     folder_name = Column(String(191), nullable=False)
 
-    # see state machine in mailsync/imap.py
+    # see state machine in mailsync/imap/imap.py
     state = Column(Enum('initial', 'initial uidinvalid',
                    'poll', 'poll uidinvalid', 'finish'),
                    server_default='initial', nullable=False)
+
+    # for progress reporting calculations
+    remote_uid_count = Column(Integer, server_default='0', nullable=False)
+    # UTC time of when `remote_uid_count` was last checked on the server
+    remote_uids_checked = Column(DateTime, nullable=True)
 
     __table_args__ = (UniqueConstraint('account_id', 'folder_name'),)
