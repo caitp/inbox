@@ -5,6 +5,8 @@ from gevent import Greenlet, joinall, sleep, killall
 from gevent.queue import Queue, Empty
 from sqlalchemy.exc import DataError
 
+from redis import StrictRedis
+
 from inbox.util.itert import partition
 from inbox.util.misc import load_modules
 from inbox.server.config import config
@@ -20,8 +22,20 @@ class MailsyncError(Exception):
     pass
 
 
-def verify_db(crispin_client, db_session):
-    pass
+def redis_connect():
+    """ Connect to mailsync redis db, which is used for sync status.
+
+    Returns
+    -------
+    redis_session : redis.StrictRedis
+        The redis connection pool wrapper object.
+    """
+    host = config.get('REDIS_HOST', None)
+    port = config.get('REDIS_PORT', None)
+    db = config.get('MAILSYNC_REDIS_DB', None)
+    assert host and port and db, \
+        "Must set REDIS_HOST, REDIS_PORT, and MAILSYNC_REDIS_DB in config.cfg"
+    return StrictRedis(host=host, port=port, db=db)
 
 
 def verify_folder_name(account_id, old, new):
