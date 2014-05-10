@@ -11,13 +11,14 @@ from datetime import datetime
 
 from sqlalchemy import (Column, Integer, BigInteger, String, DateTime, Boolean,
                         Enum, ForeignKey, Text, func, event, and_, or_, asc)
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.orm import (reconstructor, relationship, backref, deferred,
                             validates, object_session)
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.types import BLOB
-from sqlalchemy.sql.expression import true, false
+from sqlalchemy.sql.expression import true, false, select
 
 from bs4 import BeautifulSoup, Doctype, Comment
 
@@ -37,6 +38,8 @@ from inbox.server.basicauth import AUTH_TYPES
 
 from inbox.server.models.roles import Blob
 from inbox.server.models import Base
+
+from inbox.server import tags
 
 
 def register_backends():
@@ -753,6 +756,8 @@ class Thread(Base, HasPublicID):
                                single_parent=True,
                                cascade='all, delete, delete-orphan')
 
+    folders = association_proxy('folderitems', 'folder')
+
     namespace_id = Column(ForeignKey('namespace.id', ondelete='CASCADE'),
                           nullable=False, index=True)
     namespace = relationship('Namespace', backref='threads')
@@ -796,6 +801,14 @@ class Thread(Base, HasPublicID):
                      itertools.chain(m.from_addr, m.to_addr,
                                      m.cc_addr, m.bcc_addr))
         return p
+
+    @property
+    def all_tagnames(self):
+        """Return both the internal tag names and the exposed names for the
+        backend folders for this thread."""
+        names = [tag.name for tag in self.tags]
+        names.extend(folder.exposed_name for folder in self.folders)
+        return names
 
     discriminator = Column('type', String(16))
     __mapper_args__ = {'polymorphic_on': discriminator}
@@ -1078,9 +1091,8 @@ class Lens(Base, HasPublicID):
         offset = offset or 0
         self.db_session = db_session
         query = self._message_subquery()
-        subquery = self._thread_subquery()
-        query = maybe_refine_query(query, subquery).distinct(). \
-            order_by(asc(Message.id))
+        query = maybe_refine_query(query, self._thread_subquery())
+        query = query.distinct().order_by(asc(Message.id))
         if limit > 0:
             query = query.limit(limit)
         if offset > 0:
@@ -1094,11 +1106,11 @@ class Lens(Base, HasPublicID):
         offset = offset or 0
         self.db_session = db_session
         query = self._thread_subquery()
-        subquery = self._message_subquery()
+        query = maybe_refine_query(query, self._tag_subquery())
         # TODO(emfree): If there are no message-specific parameters, we may be
-        # doing a join on all messages here. Not ideal.
-        query = maybe_refine_query(query, subquery).distinct(). \
-            order_by(asc(Thread.id))
+        # doing a join on all messages here. Not good.
+        query = maybe_refine_query(query, self._message_subquery())
+        query = query.distinct().order_by(asc(Thread.id))
         if limit > 0:
             query = query.limit(limit)
         if offset > 0:
@@ -1177,6 +1189,21 @@ class Lens(Base, HasPublicID):
         return self.db_session.query(Block). \
             filter(Block.filename == self.filename)
 
+    def _tag_subquery(self):
+        if self.tag is None:
+            return None
+
+        internal_tag_q = self.db_session.query(InternalTag).filter(
+            InternalTag.name == self.tag).subquery()
+
+        folder_q = self.db_session.query(FolderItem).join(
+            Folder).filter(Folder.exposed_name == self.tag).subquery()
+
+        # TODO(emfree): Is there a simpler way to express this?
+        return self.db_session.query(internal_tag_q.c.thread_id).union(
+            self.db_session.query(folder_q.c.thread_id))
+
+
     def _thread_subquery(self):
         pred = and_(Thread.namespace_id == self.namespace_id)
         if self.thread_public_id is not None:
@@ -1216,9 +1243,20 @@ class Folder(Base, HasRevisions):
     # folder with any specific name, canonicalized to lowercase.
     name = Column(String(191, collation='utf8mb4_general_ci'))
 
+    exposed_name = Column(String(191))
+
     @property
     def namespace(self):
         return self.account.namespace
+
+    @validates('name')
+    def set_exposed_name(self, key, value):
+        """Set the exposed_name attribute whenever the name attribute is
+        set."""
+        # STOPSHIP(emfree) is this really the best way to do this?
+        # It requires the provider name to be known
+        self.exposed_name = tags.util.exposed_name(self, value)
+        return value
 
     @classmethod
     def find_or_create(cls, session, account, name):
@@ -1297,7 +1335,7 @@ class InternalTag(Base, HasRevisions, HasPublicID):
     name = Column(String(191), nullable=False)
 
     thread_id = Column(Integer, ForeignKey('thread.id', ondelete='CASCADE'),
-                       nullable=False)
+                       nullable=True)
     thread = relationship('Thread', backref='tags')
 
     __table_args__ = (UniqueConstraint('namespace_id', 'name'),)

@@ -6,7 +6,7 @@ from flask import Response
 
 from inbox.server.models.tables.base import (
     Message, Account, Part,
-    Contact, Thread, Namespace, Block, Webhook, Lens)
+    Contact, Thread, Namespace, Block, Webhook, Lens, InternalTag)
 
 
 def format_address_list(addresses):
@@ -66,7 +66,8 @@ class APIEncoder(JSONEncoder):
                 'last_message_timestamp':  obj.recentdate,
                 'subject_date': obj.subjectdate,
                 'snippet': obj.snippet,
-                'messages':  [m.public_id for m in obj.messages]  # for now
+                'messages':  [m.public_id for m in obj.messages],  # for now
+                'tags': obj.all_tagnames
             }
 
         elif isinstance(obj, Contact):
@@ -136,6 +137,13 @@ class APIEncoder(JSONEncoder):
                 'started_after': obj.started_after,
                 'last_message_before': obj.last_message_before,
                 'last_message_after': obj.last_message_after,
+            }
+
+        elif isinstance(obj, InternalTag):
+            return {
+                'id': obj.public_id,
+                'name': obj.name,
+                'namespace': obj.namespace.public_id
             }
 
         elif isinstance(obj, Account):

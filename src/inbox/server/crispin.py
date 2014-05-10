@@ -408,6 +408,7 @@ class GmailCrispinClient(CrispinClient):
         change names during a session.
         """
         if self._folder_names is None:
+            #import pdb; pdb.set_trace()
             folders = self._fetch_folder_list()
             self._folder_names = dict()
             for flags, delimiter, name in folders:
