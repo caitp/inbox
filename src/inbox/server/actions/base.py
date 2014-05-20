@@ -22,7 +22,7 @@ not really a problem because of the limited ways mail messages can change.
 ACTIONS MUST BE IDEMPOTENT! We are going to have task workers guarantee
 at-least-once semantics.
 """
-from redis import Redis
+from redis import StrictRedis
 from rq import Queue, Connection
 
 from inbox.util.misc import load_modules
@@ -55,9 +55,16 @@ def get_queue():
     # The queue label is set via config to allow multiple distinct Inbox
     # instances to hit the same Redis server without interfering with each
     # other.
+    host = config.get('REDIS_HOST', None)
+    port = config.get('REDIS_PORT', None)
+    db = config.get('ACTIONS_REDIS_DB', None)
+    assert host and port and db, \
+        'Must set REDIS_HOST, REDIS_PORT, and ACTIONS_REDIS_DB in config.cfg'
+
     label = config.get('ACTION_QUEUE_LABEL', None)
-    assert label, "Must set ACTION_QUEUE_LABEL in config.cfg"
-    return Queue(label, connection=Redis())
+    assert label, 'Must set ACTION_QUEUE_LABEL in config.cfg'
+
+    return Queue(label, connection=StrictRedis(host=host, port=port, db=db))
 
 
 def archive(db_session, account_id, thread_id):

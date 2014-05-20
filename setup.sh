@@ -88,6 +88,15 @@ color '35;1' 'Creating databases...'
 python tools/create_db.py
 find . -name \*.pyc -delete
 
+color '35;1' 'Setting up Redis...'
+mkdir -p /etc/redis
+chown $SUDO_USER /etc/redis
+
+cp ./etc/redis.conf /etc/redis/inboxapp.conf
+
+mkdir -p /var/redis/inboxapp/6379
+chown $SUDO_USER /var/redis/inboxapp/6379
+
 color '35;1' 'Cleaning up...'
 apt-get -y purge build-essential
 apt-get -y autoremove

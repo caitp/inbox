@@ -1,6 +1,7 @@
 from gc import collect as garbage_collect
 
 import zerorpc
+from redis import StrictRedis
 from gevent import Greenlet, joinall, sleep
 from gevent.queue import Queue, Empty
 from sqlalchemy.exc import DataError
@@ -13,6 +14,51 @@ from inbox.server.models.tables.base import Account, Namespace, Folder
 from inbox.server.mailsync.exc import SyncException
 
 import inbox.server.mailsync.backends
+
+
+def redis_connect():
+    """
+    Connect to mailsync Redis db, which is used for sync status.
+
+    Returns
+    -------
+    redis_client: redis.StrictRedis
+
+    """
+    host = config.get('REDIS_HOST', None)
+    port = config.get('REDIS_PORT', None)
+    db = config.get('MAILSYNC_REDIS_DB', None)
+    assert host and port and db, \
+        'Must set REDIS_HOST, REDIS_PORT, and MAILSYNC_REDIS_DB in config.cfg'
+
+    return StrictRedis(host=host, port=port, db=db)
+
+
+def register_backends():
+    """
+    Finds the monitor modules for the different providers
+    (in the backends directory) and imports them.
+
+    Creates a mapping of provider:monitor for each backend found.
+    """
+    monitor_cls_for = {}
+
+    # Find and import
+    modules = load_modules(inbox.server.mailsync.backends)
+
+    # Create mapping
+    for module in modules:
+        if hasattr(module, 'PROVIDER'):
+            provider = module.PROVIDER
+
+            assert hasattr(module, 'SYNC_MONITOR_CLS')
+            monitor_cls = getattr(module, module.SYNC_MONITOR_CLS, None)
+
+            assert monitor_cls is not None
+
+            monitor_cls_for[provider] = monitor_cls
+
+    return monitor_cls_for
 
 
 def verify_db(crispin_client, db_session):
@@ -121,33 +167,6 @@ def gevent_check_join(log, threads, errmsg):
         for error in errors:
             log.error(error)
         raise SyncException("Fatal error encountered")
-
-
-def register_backends():
-    """
-    Finds the monitor modules for the different providers
-    (in the backends directory) and imports them.
-
-    Creates a mapping of provider:monitor for each backend found.
-    """
-    monitor_cls_for = {}
-
-    # Find and import
-    modules = load_modules(inbox.server.mailsync.backends)
-
-    # Create mapping
-    for module in modules:
-        if hasattr(module, 'PROVIDER'):
-            provider = module.PROVIDER
-
-            assert hasattr(module, 'SYNC_MONITOR_CLS')
-            monitor_cls = getattr(module, module.SYNC_MONITOR_CLS, None)
-
-            assert monitor_cls is not None
-
-            monitor_cls_for[provider] = monitor_cls
-
-    return monitor_cls_for
 
 
 def create_db_objects(account_id, db_session, log, folder_name, raw_messages,

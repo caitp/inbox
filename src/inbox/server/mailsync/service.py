@@ -1,13 +1,24 @@
 """ ZeroRPC interface to syncing. """
-import socket
-
 from collections import defaultdict
+
+import socket
 
 from inbox.server.contacts.remote_sync import ContactSync
 from inbox.server.log import get_logger
 from inbox.server.models import session_scope
 from inbox.server.models.tables.base import Account
-from inbox.server.mailsync.backends.base import register_backends
+from inbox.server.mailsync.backends.base import (register_backends,
+                                                 redis_connect)
+
+
+HASHNAME = 'account:{0}'
+ACCOUNT_METRICS = {
+    'host': None,
+    'status': None, # Running, Stopped, Killed
+    'state': None, # Polling, Initial, Finished, None (if stopped or killed)
+    'percent': None, # What % of account is synced
+    'rate': None, # How fast/slow it's progressing
+}
 
 
 def notify(account_id, mtype, message):
@@ -37,13 +48,16 @@ class SyncService(object):
 
         self.contact_sync_monitors = dict()
 
+        # Set up Redis
+        self.redis_client = redis_connect()
+
         # Restart existing active syncs.
         # (Later we will want to partition these across different machines!)
         with session_scope() as db_session:
             # XXX: I think we can do some sqlalchemy magic to make it so we
             # can query on the attribute sync_active.
-            for account_id, in db_session.query(Account.id)\
-                    .filter(Account.sync_host != None):
+            for account_id, in db_session.query(Account.id).filter(
+                    Account.sync_host != None):
                 self.start_sync(account_id)
 
     def start_sync(self, account_id=None):
@@ -63,13 +77,20 @@ class SyncService(object):
                     self.log.info('Inbox does not currently support {0}\
                         '.format(acc.provider))
                     continue
-                self.log.info('Starting sync for account {0}'
-                              .format(acc.email_address))
+
+                self.log.info('Starting sync for account {0}'.format(
+                    acc.email_address))
+
                 if acc.sync_host is not None and acc.sync_host != fqdn:
                     results[acc.id] = \
                         'acc {0} is syncing on host {1}'.format(
                             acc.email_address, acc.sync_host)
+
                 elif acc.id not in self.monitors:
+                    # Create Redis hash name for account
+                    name = HASHNAME.format(account_id)
+                    self.redis_client.hmset(name, ACCOUNT_METRICS)
+
                     try:
                         acc.sync_lock()
 
@@ -79,6 +100,9 @@ class SyncService(object):
                             self.statuses[account_id][folder] \
                                 = (state, progress)
                             notify(account_id, state, status)
+
+                            name = HASHNAME.format(account_id)
+                            print '\nNAME, FOLDER, PROGRESS =', name, folder, progress
 
                         monitor = self.monitor_cls_for[acc.provider](
                             acc.id, acc.namespace.id, acc.email_address,
@@ -94,9 +118,19 @@ class SyncService(object):
                         db_session.add(acc)
                         db_session.commit()
                         results[acc.id] = 'OK sync started'
+
+                        print '\nSYNC_HOST = ', acc.sync_host
+
+                        # Update Redis
+                        self.redis_client.hset(name, 'host', fqdn)
+                        self.redis_client.hset(name, 'status', 'Running')
+
                     except Exception as e:
                         self.log.error(e.message)
-                        results[acc.id] = 'ERROR error encountered: {0}'.format(e)
+                        results[acc.id] = 'ERROR error encountered: {0}'.\
+                            format(e)
+
+                        self.redis_client.hset(name, 'status', 'Killed')
                 else:
                     results[acc.id] = 'OK sync already started'
         if account_id:
@@ -126,6 +160,7 @@ class SyncService(object):
                     if acc.sync_host is None:
                         results[acc.id] = 'Sync not running'
                         continue
+
                     assert acc.sync_host == fqdn, \
                         "sync host FQDN doesn't match: {0} <--> {1}" \
                         .format(acc.sync_host, fqdn)
@@ -141,8 +176,16 @@ class SyncService(object):
                     if acc.id in self.contact_sync_monitors:
                         del self.contact_sync_monitors[acc.id]
                     results[acc.id] = "OK sync stopped"
+
+                    # Update Redis
+                    name = HASHNAME.format(account_id)
+                    self.redis_client.hset(name, 'host', None)
+                    self.redis_client.hset(name, 'status', 'Stopped')
+
                 except Exception as e:
                     results[acc.id] = 'ERROR error encountered: {0}'.format(e)
+
+                    # TODO[k]: Redis update here
         if account_id:
             if account_id in results:
                 return results[account_id]
