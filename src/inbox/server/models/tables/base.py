@@ -267,7 +267,7 @@ class Namespace(Base, HasPublicID):
             return self.account.email_address
 
 
-class Transaction(Base, Revision):
+class Transaction(Base, Revision, HasPublicID):
     """ Transactional log to enable client syncing. """
     # Do delete transactions if their associated namespace is deleted.
     namespace_id = Column(Integer,
@@ -278,6 +278,8 @@ class Transaction(Base, Revision):
         primaryjoin='and_(Transaction.namespace_id == Namespace.id, '
                     'Namespace.deleted_at.is_(None))')
 
+    object_public_id = Column(Base36UID, nullable=True)
+
     def set_extra_attrs(self, obj):
         try:
             self.namespace = obj.namespace
@@ -287,6 +289,15 @@ class Transaction(Base, Revision):
             log.info("Delta is {0}".format(self.delta))
             log.info("Thread is: {0}".format(obj.thread_id))
             raise
+        object_public_id = getattr(obj, 'public_id', None)
+        if object_public_id is not None:
+            # Don't set object_public_id value if it can't be b36-encoded.
+            try:
+                int(object_public_id, 36)
+                self.object_public_id = object_public_id
+            except ValueError:
+                pass
+
 
 HasRevisions = gen_rev_role(Transaction)
 
@@ -606,12 +617,10 @@ class Message(Base, HasRevisions, HasPublicID):
 
     # The return value of this method will be stored in the transaction log's
     # `additional_data` column.
-    def get_versioned_properties(self):
+    def snapshot(self):
         from inbox.server.models.kellogs import APIEncoder
         encoder = APIEncoder()
-        return {'thread': encoder.default(self.thread),
-                'namespace_public_id': self.namespace.public_id,
-                'blocks': [encoder.default(part) for part in self.parts]}
+        return encoder.default(self)
 
     discriminator = Column('type', String(16))
     __mapper_args__ = {'polymorphic_on': discriminator,
@@ -922,9 +931,10 @@ class Thread(Base, HasPublicID, HasRevisions):
         elif tag == archive_tag:
             self.tags.add(inbox_tag)
 
-    # STOPSHIP(emfree) make this work with new versioned properties thing
-    def get_versioned_properties(self):
-        return {"tags": [tag.public_id for tag in self.tags]}
+    def snapshot(self):
+        from inbox.server.models.kellogs import APIEncoder
+        encoder = APIEncoder()
+        return encoder.default(self)
 
     discriminator = Column('type', String(16))
     __mapper_args__ = {'polymorphic_on': discriminator}

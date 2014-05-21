@@ -13,6 +13,7 @@ from inbox.server.models.kellogs import jsonify
 from inbox.server.config import config
 from inbox.server import contacts
 from inbox.server.models import InboxSession
+from inbox.server.transactions import client_sync
 
 from err import err
 
@@ -478,3 +479,35 @@ def webhooks_read_update_api(public_id):
 @app.route('/webhooks/<public_id>', methods=['DELETE'])
 def webhooks_delete_api(public_id):
     raise NotImplementedError
+
+
+##
+# Client syncing
+##
+
+@app.route('/sync/events')
+def sync_events():
+    start_stamp = request.args.get('stamp')
+    if start_stamp is None:
+        return err(400, 'No stamp parameter in sync request.')
+
+    try:
+        results = client_sync.get_entries_after_public_id(
+            g.namespace.id, start_stamp, g.db_session, 100)
+        return jsonify(results)
+    except ValueError:
+        return err(404, 'Invalid stamp parameter')
+
+
+@app.route('/sync/generate_stamp', methods=['POST'])
+def generate_stamp():
+    data = request.get_json(force=True)
+    if data.keys() != ['before'] or not isinstance(data['before'], int):
+        return err(400, 'generate_stamp request body must have the format '
+                        '{"before": <Unix timestamp>}')
+
+    timestamp = int(data['before'])
+    stamp = client_sync.get_public_id_from_ts(g.namespace.id,
+                                              timestamp,
+                                              g.db_session)
+    return jsonify({'stamp': stamp})

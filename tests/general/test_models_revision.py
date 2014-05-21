@@ -33,7 +33,7 @@ class Monkey(Base, HasRevisions):
     def favorite_food(self):
         return 'banana'
 
-    def get_versioned_properties(self):
+    def snapshot(self):
         return {'favorite_food': self.favorite_food}
 
 

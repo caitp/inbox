@@ -84,7 +84,7 @@ class Revision(object):
         pass
 
     def set_additional_data(self, obj):
-        self.additional_data = obj.get_versioned_properties()
+        self.additional_data = obj.snapshot()
 
 
 def gen_rev_role(rev_cls):
@@ -103,7 +103,7 @@ def gen_rev_role(rev_cls):
                                     cls.__name__, rev_cls.__name__),
                                 foreign_keys=rev_cls.record_id, viewonly=True)
 
-        def get_versioned_properties(self):
+        def snapshot(self):
             """Subclasses which wish to store data in the transaction log's
             `additional_data` field should implement this method, returning a
             serializable dictionary."""
