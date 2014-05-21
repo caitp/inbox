@@ -6,7 +6,7 @@ from flask import Response
 
 from inbox.server.models.tables.base import (
     Message, Account, Part, Folder,
-    Contact, Thread, Namespace, Block, Webhook, Lens, UserTag)
+    Contact, Thread, Namespace, Block, Webhook, Lens, Tag)
 
 
 def format_address_list(addresses):
@@ -50,7 +50,7 @@ class APIEncoder(JSONEncoder):
                 'thread': obj.thread.public_id,
                 'files': [p.public_id for p in obj.parts if p.is_attachment],
                 'body': obj.sanitized_body,
-                'tags': obj.thread.all_tags
+                'tags': [self.default(tag) for tag in obj.thread.tags]
                 # 'list_info'   : obj.mailing_list_headers
             }
             if obj.is_draft:
@@ -68,7 +68,7 @@ class APIEncoder(JSONEncoder):
                 'subject_date': obj.subjectdate,
                 'snippet': obj.snippet,
                 'messages':  [m.public_id for m in obj.messages],  # for now
-                'tags': [self.default(tag) for tag in obj.all_tags]
+                'tags': [self.default(tag) for tag in obj.tags]
             }
 
         elif isinstance(obj, Contact):
@@ -140,18 +140,10 @@ class APIEncoder(JSONEncoder):
                 'last_message_after': obj.last_message_after,
             }
 
-        elif isinstance(obj, UserTag):
+        elif isinstance(obj, Tag):
             return {
                 'id': obj.public_id,
                 'name': obj.name,
-                'namespace': obj.namespace.public_id
-            }
-
-        elif isinstance(obj, Folder):
-            return {
-                'id': obj.public_id,
-                'name': obj.exposed_name,
-                'namespace': obj.namespace.public_id
             }
 
         elif isinstance(obj, Account):
