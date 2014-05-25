@@ -18,16 +18,6 @@ from err import err
 
 
 DEFAULT_LIMIT = 50
-SPECIAL_LABELS = [
-    'inbox',
-    'all',
-    'archive',
-    'drafts'
-    'sent',
-    'spam',
-    'starred',
-    'trash',
-    'attachment']
 
 
 app = Blueprint(
@@ -156,7 +146,7 @@ def index():
 ##
 @app.route('/tags')
 def tag_query_api():
-    results = list(g.namespace.tags)
+    results = list(g.namespace.tags.values())
     return jsonify(results)
 
 
@@ -212,25 +202,29 @@ def thread_api_update(public_id):
 
     removals = data.get('remove_tags', [])
 
+    # TODO(emfree) possibly also support adding/removing tags by tag public id,
+    # not just name.
+
     for tag_name in removals:
-        try:
-            tag = g.db_session.query(Tag).filter(
-                Tag.namespace_id == g.namespace.id,
-                Tag.name == tag_name).one()
-            # TODO(emfree) do this via a validation interface
-            thread.tags.discard(tag)
-        except NoResultFound:
+        tag = g.db_session.query(Tag).filter(
+            Tag.namespace_id == g.namespace.id,
+            Tag.name == tag_name).first()
+        if tag is None:
             return err(404, 'No tag found with name {}'.  format(tag_name))
+        if not tag.user_mutable:
+            return err(400, 'Cannot remove tag {}'.format(tag_name))
+            thread.remove_tag(tag, execute_action=True)
 
     additions = data.get('add_tags', [])
     for tag_name in additions:
-        try:
-            tag = g.db_session.query(Tag).filter(
-                Tag.namespace_id == g.namespace.id,
-                Tag.name == tag_name).one()
-            thread.tags.add(tag)
-        except NoResultFound:
-            return err(404, 'No tag found with name {}'.  format(tag_name))
+        tag = g.db_session.query(Tag).filter(
+            Tag.namespace_id == g.namespace.id,
+            Tag.name == tag_name).first()
+        if tag is None:
+            return err(404, 'No tag found with name {}'.format(tag_name))
+        if not tag.user_mutable:
+            return err(400, 'Cannot remove tag {}'.format(tag_name))
+        thread.apply_tag(tag, execute_action=True)
 
     g.db_session.commit()
     return jsonify(thread)

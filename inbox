@@ -171,6 +171,15 @@ def api_server(args):
     from inbox.server.log import get_logger
     from werkzeug.serving import run_with_reloader
 
+    # start actions service
+    from inbox.server.util.concurrency import make_zerorpc
+    from inbox.server.transactions.actions import ListenerService
+    action_srv_loc = config.get('ACTION_SERVER_LOC', None)
+    make_zerorpc(ListenerService, action_srv_loc)
+
+    from inbox.server.actions.base import rqworker
+    spawn(log_uncaught_errors(rqworker))
+
     # gevent.pywsgi bullshit. see
     # http://stackoverflow.com/questions/9444405/gunicorn-and-websockets
     def log_request(self, *args):

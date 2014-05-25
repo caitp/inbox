@@ -584,6 +584,13 @@ class GmailCrispinClient(CrispinClient):
     def set_unread(self, g_thrid, unread):
         uids = self.find_messages(g_thrid)
         if unread:
-            self.conn.remove_flags(uids, '\\Seen')
+            self.conn.remove_flags(uids, ['\\Seen'])
         else:
-            self.conn.add_flags(uids, '\\Seen')
+            self.conn.add_flags(uids, ['\\Seen'])
+
+    def set_starred(self, g_thrid, starred):
+        uids = self.find_messages(g_thrid)
+        if starred:
+            self.conn.add_flags(uids, ['\\Starred'])
+        else:
+            self.conn.remove_flags(uids, ['\\Starred'])
