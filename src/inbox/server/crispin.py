@@ -510,7 +510,7 @@ class GmailCrispinClient(CrispinClient):
         assert self.selected_folder_name == self.folder_names()['all'], \
             "must select All Mail first ({})".format(
                 self.selected_folder_name)
-        criteria = ('OR ' * (len(g_thrids)-1)) + ' '.join(
+        criteria = ('OR ' * (len(g_thrids) - 1)) + ' '.join(
             ['X-GM-THRID {}'.format(thrid) for thrid in g_thrids])
         uids = [long(uid) for uid in self.conn.search(['NOT DELETED',
                                                        criteria])]
@@ -574,3 +574,24 @@ class GmailCrispinClient(CrispinClient):
                 self.selected_folder_name)
 
         self.conn.append(self.selected_folder_name, message, flags, date)
+
+    def remove_draft_label(self, inbox_uid):
+        """
+        NOTE: Does nothing if the thread isn't in the currently selected
+        folder.
+
+        """
+        # Gmail uses the `Draft` label
+        label_name = 'Draft'
+
+        # Gmail won't even include the label of the selected folder (when the
+        # selected folder is a label) in the list of labels for a UID, FYI.
+        assert self.selected_folder_name != label_name, \
+            "Gmail doesn't support removing a selected label"
+
+        criteria = ['DRAFT', 'NOT DELETED',
+                    'HEADER X-INBOX-ID {0}'.format(inbox_uid)]
+        draft_uids = self.conn.search(criteria)
+        if draft_uids:
+            assert len(draft_uids) == 1
+            self.conn.remove_gmail_labels(draft_uids, [label_name])

@@ -5,8 +5,9 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 from inbox.server.log import get_logger
 from inbox.server.models.tables.base import SpoolMessage, Thread, DraftThread
-from inbox.server.actions.base import save_draft
-from inbox.server.sendmail.base import all_recipients, SendMailException
+from inbox.server.actions.base import save_draft, get_queue, ACTION_MODULES
+from inbox.server.sendmail.base import (all_recipients, SendMailException,
+                                        _delete_draft_versions)
 from inbox.server.sendmail.message import create_email, SenderInfo
 from inbox.server.sendmail.gmail.gmail import GmailSMTPClient
 
@@ -109,7 +110,33 @@ def update(db_session, account, draft_public_id, recipients=None, subject=None,
                                    reply_to=draft.replyto_thread_id)
     newuid = _save_gmail_draft(db_session, account.id, draftmsg)
 
+    # We need to do this so if the user accesses their `Drafts` from
+    # a different client, they see what they expect (i.e. only the
+    # updated version(s) of the draft rather than both the original and
+    # the updated drafts.)
+    _delete_remote_gmail_draft(account, draft.inbox_uid)
+
     return newuid.message
+
+
+def delete(db_session, account, draft_public_id):
+    """
+    Delete the draft with public_id = draft_public_id locally
+    and on the remote.
+
+    """
+
+    draft = db_session.query(SpoolMessage).filter(
+        SpoolMessage.public_id == draft_public_id).one()
+
+    assert draft.is_draft
+
+    # Delete locally, make sure to delete all previous versions of this draft
+    # too.
+    _delete_draft_versions(db_session, draft.id)
+
+    # Delete on remote
+    _delete_remote_gmail_draft(account, draft.inbox_uid)
 
 
 # TODO[k]: Attachments handling
@@ -210,3 +237,12 @@ def _save_gmail_draft(db_session, account_id, draftmsg):
     log = get_logger(account_id, 'drafts')
     imapuid = save_draft(db_session, log, account_id, draftmsg)
     return imapuid
+
+
+def _delete_remote_gmail_draft(account, inbox_uid):
+    assert ACTION_MODULES, 'Actions rqworker not running'
+
+    q = get_queue()
+    remote_delete_draft = ACTION_MODULES[account.provider].remote_delete_draft
+    q.enqueue(remote_delete_draft, account.id, inbox_uid,
+              account.drafts_folder.name)

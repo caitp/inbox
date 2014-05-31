@@ -275,22 +275,17 @@ def update_draft(db_session, account, draft_public_id, to=None, subject=None,
 
 def delete_draft(db_session, account, draft_public_id):
     """ Delete the draft with public_id = draft_public_id. """
-    # Don't really want a fn, merely do the provider check
-    get_function(account.provider, '')
-
-    draft = db_session.query(SpoolMessage).filter(
-        SpoolMessage.public_id == draft_public_id).one()
-
-    _delete_all(db_session, draft.id)
+    delete_fn = get_function(account.provider, 'delete')
+    return delete_fn(db_session, account, draft_public_id)
 
 
-def _delete_all(db_session, draft_id):
+def _delete_draft_versions(db_session, draft_id):
     draft = db_session.query(SpoolMessage).get(draft_id)
 
     assert draft.is_draft
 
     if draft.parent_draft_id:
-        _delete_all(db_session, draft.parent_draft_id)
+        _delete_draft_versions(db_session, draft.parent_draft_id)
 
     db_session.delete(draft)
 
