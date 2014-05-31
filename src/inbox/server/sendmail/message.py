@@ -13,13 +13,15 @@ This is because not all servers support 8BIT and so flanker drops to b64.
 http://www.w3.org/Protocols/rfc1341/5_Content-Transfer-Encoding.html
 
 """
-import uuid
+#import uuid
 import pkg_resources
 from collections import namedtuple
 
 from flanker import mime
 from flanker.addresslib import address
 from html2text import html2text
+
+from inbox.sqlalchemy.util import generate_public_id
 
 VERSION = pkg_resources.get_distribution('inbox').version
 
@@ -119,7 +121,7 @@ def add_inbox_headers(msg):
 
     """
     # Set our own custom header for tracking in `Sent Mail` folder
-    msg.headers['X-INBOX-ID'] = str(uuid.uuid4().hex)
+    msg.headers['X-INBOX-ID'] = generate_public_id()  # str(uuid.uuid4().hex)
 
     # Potentially also use `X-Mailer`
     msg.headers['User-Agent'] = 'Inbox/{0}'.format(VERSION)

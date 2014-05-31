@@ -97,6 +97,9 @@ def create_message(db_session, log, account, mid, folder_name, received_date,
 
         # Custom Inbox header
         new_msg.inbox_uid = parsed.headers.get('X-INBOX-ID')
+        if created and new_msg.inbox_uid:
+            assert isinstance(new_msg, SpoolMessage)
+            new_msg.public_id = new_msg.inbox_uid
 
         # In accordance with JWZ (http://www.jwz.org/doc/threading.html)
         new_msg.references = parse_references(

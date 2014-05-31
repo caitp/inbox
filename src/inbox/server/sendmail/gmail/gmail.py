@@ -4,6 +4,7 @@ from inbox.server.sendmail.postel import SMTPClient, SendError
 from inbox.server.sendmail.message import SenderInfo
 from inbox.server.sendmail.gmail.message import (create_gmail_email,
                                                  create_gmail_reply)
+from inbox.server.sendmail.gmail.drafts import _delete_remote_gmail_draft
 
 
 class GmailSMTPClient(SMTPClient):
@@ -46,6 +47,8 @@ class GmailSMTPClient(SMTPClient):
 
         db_session.commit()
 
+        # Delete from Drafts folder on remote
+        _delete_remote_gmail_draft(account, smtpmsg.inbox_uid)
         return result
 
     def send_new(self, db_session, imapuid, recipients, subject, body,
