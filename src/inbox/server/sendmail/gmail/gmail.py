@@ -4,7 +4,6 @@ from inbox.server.sendmail.postel import SMTPClient, SendError
 from inbox.server.sendmail.message import SenderInfo
 from inbox.server.sendmail.gmail.message import (create_gmail_email,
                                                  create_gmail_reply)
-from inbox.server.sendmail.gmail.drafts import _delete_remote_gmail_draft
 
 
 class GmailSMTPClient(SMTPClient):
@@ -15,6 +14,9 @@ class GmailSMTPClient(SMTPClient):
         store.
 
         """
+        from inbox.server.sendmail.gmail.drafts import (
+            _delete_remote_gmail_draft)
+
         account = db_session.query(ImapAccount).get(self.account_id)
         draftuid = db_session.query(ImapUid).get(imapuid.id)
 

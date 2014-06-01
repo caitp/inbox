@@ -4,11 +4,11 @@ from inbox.server.actions.gmail.local import (
     set_local_unread, local_save_draft)
 from inbox.server.actions.gmail.remote import (
     remote_archive, remote_move, remote_copy, remote_delete, uidvalidity_cb,
-    set_remote_unread, remote_save_draft)
+    set_remote_unread, remote_save_draft, remote_delete_draft)
 
 __all__ = ['local_archive', 'local_move', 'local_copy', 'local_delete',
            'set_local_unread', 'remote_archive', 'remote_move', 'remote_copy',
            'remote_delete', 'uidvalidity_cb', 'set_remote_unread',
-           'local_save_draft', 'remote_save_draft']
+           'local_save_draft', 'remote_save_draft', 'remote_delete_draft']
 
 PROVIDER = 'Gmail'

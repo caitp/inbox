@@ -121,7 +121,9 @@ def add_inbox_headers(msg):
 
     """
     # Set our own custom header for tracking in `Sent Mail` folder
-    msg.headers['X-INBOX-ID'] = generate_public_id()  # str(uuid.uuid4().hex)
+    msg.headers['X-INBOX-ID'] = generate_public_id() # base-36 encoded string
+
+    # str(uuid.uuid4().hex)
 
     # Potentially also use `X-Mailer`
     msg.headers['User-Agent'] = 'Inbox/{0}'.format(VERSION)

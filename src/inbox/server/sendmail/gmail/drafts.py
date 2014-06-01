@@ -3,13 +3,14 @@ from collections import namedtuple
 
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
+from inbox.util.encoding import base36decode
 from inbox.server.log import get_logger
 from inbox.server.models.tables.base import SpoolMessage, Thread, DraftThread
 from inbox.server.actions.base import save_draft, get_queue, ACTION_MODULES
 from inbox.server.sendmail.base import (all_recipients, SendMailException,
                                         _delete_draft_versions)
 from inbox.server.sendmail.message import create_email, SenderInfo
-from inbox.server.sendmail.gmail.gmail import GmailSMTPClient
+from inbox.server.sendmail.gmail import GmailSMTPClient
 
 DraftMessage = namedtuple(
     'DraftMessage', 'uid msg original_draft reply_to date flags')
@@ -214,8 +215,8 @@ def _create_gmail_draft(sender_info, recipients, subject, body, attachments,
     # msg_uid for the corresponding ImapUid. The msg_uid is a SQL BigInteger
     # (20 bits), so we truncate the `X-INBOX-ID` to that size. Note that
     # this still provides a large enough ID space to make collisions rare.
-    x_inbox_id = mimemsg.headers.get('X-INBOX-ID')
-    uid = int(x_inbox_id, 16) & (1 << 20) - 1
+    x_inbox_id = mimemsg.headers.get('X-INBOX-ID') # base-36 encoded string
+    uid = base36decode(x_inbox_id) & (1 << 20) - 1
 
     date = datetime.utcnow()
     flags = [u'\\Draft']

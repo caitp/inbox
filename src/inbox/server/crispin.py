@@ -581,17 +581,17 @@ class GmailCrispinClient(CrispinClient):
         folder.
 
         """
-        # Gmail uses the `Draft` label
-        label_name = 'Draft'
-
-        # Gmail won't even include the label of the selected folder (when the
-        # selected folder is a label) in the list of labels for a UID, FYI.
-        assert self.selected_folder_name != label_name, \
-            "Gmail doesn't support removing a selected label"
+        label_name = '\Draft'
 
         criteria = ['DRAFT', 'NOT DELETED',
                     'HEADER X-INBOX-ID {0}'.format(inbox_uid)]
         draft_uids = self.conn.search(criteria)
         if draft_uids:
             assert len(draft_uids) == 1
+
+            # Remove Gmail's `Draft` label
             self.conn.remove_gmail_labels(draft_uids, [label_name])
+
+            # Move to Gmail's `Trash` folder
+            self.conn.delete_messages(draft_uids)
+            self.conn.expunge()

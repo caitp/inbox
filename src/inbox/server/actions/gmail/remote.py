@@ -194,6 +194,7 @@ def remote_delete(imapaccount_id, thread_id, folder_name):
 def remote_save_draft(imapaccount_id, folder_name, message, flags=None,
                       date=None):
     def fn(account, db_session, crispin_client):
+        assert folder_name == crispin_client.folder_names()['drafts']
         crispin_client.save_draft(message, flags, date)
 
     return _syncback_action(fn, imapaccount_id, folder_name)
@@ -202,9 +203,6 @@ def remote_save_draft(imapaccount_id, folder_name, message, flags=None,
 def remote_delete_draft(imapaccount_id, inbox_uid, folder_name):
     def fn(account, db_session, crispin_client):
         assert folder_name == crispin_client.folder_names()['drafts']
-
-        crispin_client.select_folder(
-            crispin_client.folder_names()['all'], uidvalidity_cb)
         crispin_client.remove_draft_label(inbox_uid)
 
     return _syncback_action(fn, imapaccount_id, folder_name)
